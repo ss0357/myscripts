@@ -42,7 +42,7 @@ for batch in batch_list:
     try:
       import requests
       r = requests.get(uu)
-      data = r.content
+      data = r.content.decode('utf-8')
     except:
       import urllib2
       response = urllib2.urlopen(uu)

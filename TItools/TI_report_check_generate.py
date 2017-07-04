@@ -40,8 +40,11 @@ def check_pending_cases(version):
       case_info = [x.strip('</td>')  for x in case.split('<td align=left>')]
       #print case_info
       if case_info[10]=='':
-          print('\t\t'.join(case_info[3:6]))
-          pending.append("%s____%s" % (case_info[3],case_info[4]))
+        if int(slot)%2==0 and case_info[4].startswith('SHA_NFXSD'):
+          print( 'abort ' + '\t\t'.join(case_info[3:6]))
+          continue
+        print('\t\t'.join(case_info[3:6]))
+        pending.append("%s____%s" % (case_info[3],case_info[4]))
 
   pending = list(set(pending))
 

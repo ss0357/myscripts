@@ -73,7 +73,7 @@ def download_log_ASB(version, batch):
 
     # scp from server
     cmd = 'scp -r atxuser@135.251.206.171:%s  %s' % (remotepath, localpath)
-    print cmd
+    print (cmd)
     try:
         os.makedirs(localpath)
     except:
@@ -93,7 +93,7 @@ def download_log_ASB(version, batch):
         time.sleep(5)
         index = child.expect([u"(?i)100%",pexpect.EOF, pexpect.TIMEOUT])
         for line in child:
-            print line,
+            print (line,)
         if index == 1:
             return
 

@@ -96,8 +96,9 @@ def generate_issue_info(product):
 issue = {}
 generate_issue_info(product)
 
-username = input('please input your username:')
-password = getpass.getpass('password:')
+#username = input('please input your username:')
+#password = getpass.getpass('password:')
+username, password = 'svc_hetran', 'asb#2345'
 
 s = requests.Session()
 payload = {'redi': 'index.php', 'pid': username, 'password':password, 'btnsubmit': 'login'}
