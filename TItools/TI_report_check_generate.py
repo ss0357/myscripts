@@ -4,24 +4,25 @@ import sys
 import pdb
 import get_summary_chart
 import shutil
-
-local_log_path = 'D:\\TI_logs\\' if os.name=='nt' else '/home/songsonl/TI_logs'
-local_rep_path = 'D:\\TI_reports\\' if os.name=='nt' else '/home/songsonl/TI_reports'
-network_path = "\\135.251.206.152\pt\Automation\TI_report"
-
-product = 'FTTU'
-url = 'http://135.249.31.114/cgi-bin/test/ti_info.cgi?sRelease=&sBuild=%s&sPlatform=&sAtc=&sBoard=&sTiType=&sPt=%s'
+import argparse
 
 
-product = sys.argv[1]
-version = sys.argv[2]
-week, slot = sys.argv[3], sys.argv[4]
+parser = argparse.ArgumentParser()
+parser.add_argument('-d', '--domain', dest='product', required=True, choices=['FTTU', 'PORTPROT'])
+parser.add_argument('-v', '--version', required=True)
+parser.add_argument('-w', '--week', required=True)
+parser.add_argument('-s', '--slot', required=True)
+args = parser.parse_args()
+product, version, week, slot = args.product, args.version, args.week, args.slot
+print(product, version, week, slot)
 
-if version=='':
-  print('input version number')
+if int(slot)%2==0 and product=='PORTPROT':
+  print('PORTPROT not run on slot 2 or slot 4')
   exit()
 
+
 def check_pending_cases(version):
+  url = 'http://135.249.31.114/cgi-bin/test/ti_info.cgi?sRelease=&sBuild=%s&sPlatform=&sAtc=&sBoard=&sTiType=&sPt=%s'
   uu = url % (version, product)
   print(uu)
   try:
@@ -96,6 +97,16 @@ def get_TI_report(ver_list):
   return url
 
 
+local_log_path = 'D:\\TI_logs\\' if os.name=='nt' else '/home/atxuser/TI_logs'
+local_rep_path = 'D:\\TI_reports\\' if os.name=='nt' else '/home/atxuser/TI_reports'
+network_path = "\\135.251.206.152\pt\Automation\TI_report"
+
+try:
+  os.makedirs(local_log_path)
+  os.makedirs(local_rep_path)
+except:
+  pass
+
 if check_pending_cases(version):
   ver_list = get_latest_4_version(version, product)
   rep_url = get_TI_report(ver_list)
@@ -125,6 +136,12 @@ if check_pending_cases(version):
 
   network_path += '/' + stream + '/' + version + '/'
   network_path2 = network_path + pdf_name
+
+  if os.name!='nt':
+    print('===> please copy pdf report to: \n%s' % network_path)
+    exit(0)
+
+  # for windows
   try:
     os.makedirs(network_path)
   except:

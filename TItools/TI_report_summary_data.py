@@ -5,19 +5,31 @@ import sys
 import os
 import time
 import getpass
+import argparse
 
-print('python %s product version week slot')
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-d', '--domain', dest='product', required=True, choices=['FTTU', 'PORTPROT'])
+parser.add_argument('-v', '--version', required=True)
+parser.add_argument('-w', '--week', required=True)
+parser.add_argument('-s', '--slot', required=True)
+parser.add_argument('-u', '--username', required=True)
+parser.add_argument('-p', '--password', required=True)
+args = parser.parse_args()
+product, version, week, slot = args.product, args.version, args.week, args.slot
+ws = 'W%s slot %s' % (week, slot)
+print(product, version, week, slot)
+
+if int(slot)%2==0 and product=='PORTPROT':
+  print('PORTPROT not run on slot 2 or slot 4')
+  exit()
+
+
 url_login = "http://135.249.31.173/webtia/login.php"
 url_logout = 'http://135.249.31.173/webtia/logout.php'
-local_log_path = 'D:\\TI_logs\\' if os.name=='nt' else '/home/songsonl/TI_logs'
-local_rep_path = 'D:\\TI_reports\\' if os.name=='nt' else '/home/songsonl/TI_reports'
+local_log_path = 'D:\\TI_logs\\' if os.name=='nt' else '/home/atxuser/TI_logs'
+local_rep_path = 'D:\\TI_reports\\' if os.name=='nt' else '/home/atxuser/TI_reports'
 today = time.strftime('%Y/%m/%d',time.localtime(time.time()))
-
-
-product = sys.argv[1]
-version = sys.argv[2]
-week, slot = sys.argv[3], sys.argv[4]
-ws = 'W%s slot %s' % (week, slot)
 
 
 def get_batch_owner(batch):
@@ -37,7 +49,7 @@ def get_batch_owner(batch):
         return 'Wu Liulan'
     elif 'PORTPROT' in batch:
         if slot == '1':
-            return 'Lu Luyun'
+            return 'Li Songsong'
         elif slot == '3':
             return 'Zhou Yun C'
         elif slot == '5':
@@ -98,7 +110,8 @@ generate_issue_info(product)
 
 #username = input('please input your username:')
 #password = getpass.getpass('password:')
-username, password = 'svc_hetran', 'asb#2345'
+#username, password = 'svc_hetran', 'asb#2345'
+username, password = args.username, args.password
 
 s = requests.Session()
 payload = {'redi': 'index.php', 'pid': username, 'password':password, 'btnsubmit': 'login'}
@@ -107,6 +120,7 @@ r = s.post("http://135.249.31.173/webtia/login.php", data=payload)
 if r.status_code== 200 and b'Authenticate successful' in r.content:
     print('===> login successful')
 else:
+    print('===> login failed with %s %s' % (username, '*********'))
     exit()
 
 webtia_url = 'http://135.249.31.173/webtia/Presentation.php?strm=%s&bld=%s&tstype=Weekly'
