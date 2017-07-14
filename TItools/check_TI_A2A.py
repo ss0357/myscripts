@@ -1,22 +1,20 @@
-
+import argparse
 import re
 from down_TI_logs import download_log
 
-batch_list = ['NFXSB_NANTE_FTTU_L3FWD_weekly',
-              'NFXSE_FANTF_FTTU_L3FWD_weekly',
-              'NFXSB_NANTE_FTTU_SETUP_weekly',
-              'NFXSE_FANTF_FTTU_SETUP_weekly',
-              'NFXSB_NANTE_FTTU_EQMT_weekly',
-              'NFXSE_FANTF_FTTU_EQMT_weekly',
-              'SHA_NFXSD_FANTF_FTTU_L3FWD_weekly',
-              'SHA_NFXSD_FANTF_FTTU_SETUP_weekly',
-              'SHA_NFXSD_FANTF_FTTU_EQMT_weekly'
-              ]
 
-batch_list = ['FTTU_L3FWD_weekly', 'FTTU_SETUP_weekly', 'FTTU_EQMT_weekly']
+parser = argparse.ArgumentParser()
+#parser.add_argument('-d', '--domain', dest='product', required=True, choices=['FTTU', 'PORTPROT'])
+parser.add_argument('-v', '--version', required=True)
+#parser.add_argument('-w', '--week', required=True)
+#parser.add_argument('-s', '--slot', required=True)
+args = parser.parse_args()
 
-product = 'FTTU'
-url = 'http://135.249.31.114/cgi-bin/test/ti_info.cgi?sRelease=&sBuild=&sPlatform=%s&sAtc=&sBoard=&sTiType=&sPt=%s'
+
+batch_list = ['NFXSB_NANTE_REDUND_PORTPROT_weekly', 'NFXSE_FANTF_REDUND_PORTPROT_weekly']
+
+product = 'PORTPROT'
+url = 'http://135.249.31.114/cgi-bin/test/ti_info.cgi?sRelease=&sBuild=%s&sPlatform=%s&sAtc=&sBoard=&sTiType=&sPt=%s'
 
 pending = []
 
@@ -33,14 +31,12 @@ def ver_in_range(ver):
     return True
   elif v1==5502 and v2>500:
     return True
-  elif v1==5402 and v2>600:
-    return True
   else:
     return False
 
 
 for batch in batch_list:
-    uu = url % (batch, product)
+    uu = url % (args.version, batch, product)
     print(uu)
     try:
       import requests
@@ -53,7 +49,7 @@ for batch in batch_list:
 
     result = re.findall('<tr><td>.*?</td></tr>', data)
 
-    for case in result:
+    for case in result[]:
         case_info = [x.strip('</td>')  for x in case.split('<td align=left>')]
         if case_info[10]=='' and ver_in_range(case_info[3]):
             print(case_info[3:7])

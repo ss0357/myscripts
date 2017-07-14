@@ -6,11 +6,11 @@ import re
 import time
 import sys
 from pexpect import popen_spawn
-
+import pdb
 
 local_log_path = 'D:\\TI_logs\\' if os.name=='nt' else '/home/songsonl/TI_logs'
 
-def download_log(version, batch):
+def download_log_rlab(version, batch):
     os.chdir(local_log_path)
     remotepath = '%s/%s' % (version, batch)
     if (os.path.exists(remotepath+'/apelogs/TS_focus.log1.gz')  \
@@ -51,9 +51,9 @@ def download_log(version, batch):
 def download_log_ASB(version, batch):
     os.chdir(local_log_path)
     localpath = '%s/%s' % (version, batch)
-    if (os.path.exists(localpath+'/apelogs/TS_focus.log1.gz')  \
-            or os.path.exists(localpath+'/apelogs/TS_focus.log1')) \
-            and os.path.exists(localpath+'/InstantStatus.html'):
+    if (os.path.exists(localpath+'/SB_Logs/apelogs/TS_focus.log1.gz')  \
+            or os.path.exists(localpath+'/SB_Logs/apelogs/TS_focus.log1')) \
+            and os.path.exists(localpath+'/SB_Logs/InstantStatus.html'):
         print('log for %s exist, abort download.' % localpath)
         return
 
@@ -72,7 +72,7 @@ def download_log_ASB(version, batch):
     ssh.close()
 
     # scp from server
-    cmd = 'scp -r atxuser@135.251.206.171:%s  %s' % (remotepath, localpath)
+    cmd = 'pscp -r atxuser@135.251.206.171:%s  %s' % (remotepath, localpath)
     print (cmd)
     try:
         os.makedirs(localpath)
@@ -80,7 +80,8 @@ def download_log_ASB(version, batch):
         pass
 
     #child = pexpect.spawn(cmd)
-    child = pexpect.popen_spawn.PopenSpawn(cmd)
+    #pdb.set_trace()
+    child = pexpect.popen_spawn.PopenSpawn(cmd, logfile=sys.stdout)
     index = child.expect([u"(?i)yes/no",u"(?i)password", pexpect.EOF, pexpect.TIMEOUT])
     if index==0:
         child.sendline('yes')
@@ -100,10 +101,14 @@ def download_log_ASB(version, batch):
     return
 
 
-
-if __name__ == '__main__':
-    version, batch = sys.argv[1], sys.argv[2]
+def download_log(version, batch):
     if batch.startswith('SHA'):
         download_log_ASB(version, batch)
     else:
-        download_log(version, batch)
+        download_log_rlab(version, batch)
+
+
+
+if __name__ == '__main__':
+    version, batch = sys.argv[1], sys.argv[2]
+    download_log(version, batch)
