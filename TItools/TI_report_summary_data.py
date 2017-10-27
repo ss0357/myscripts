@@ -84,7 +84,7 @@ def generate_issue_info(product):
     data = r.content.decode('utf-8')
 
     result = re.findall('<tr><td>.*?</td></tr>', data)
-    assert(len(result)>2)
+    assert(len(result)>=0)
 
     for case in result:
         case_info = [x.strip('</td>')  for x in case.split('<td align=left>')]

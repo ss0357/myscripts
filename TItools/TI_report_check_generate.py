@@ -44,6 +44,8 @@ def check_pending_cases(version):
         if int(slot)%2==0 and case_info[4].startswith('SHA_NFXSD'):
           print( 'abort ' + '\t\t'.join(case_info[3:6]))
           continue
+        #if 'SHA_CFXRA_CFNTB' in case_info[4]:
+        #  continue
         print('\t\t'.join(case_info[3:6]))
         pending.append("%s____%s" % (case_info[3],case_info[4]))
 
@@ -83,6 +85,9 @@ def get_latest_4_version(ver, product):
   if ver not in ver_list:
     print('%s not found in the version list' % ver)
     ver_list.append(ver)
+
+  if len(ver_list)<4:
+    ver_list = ['', '', ''] + ver_list
   print(ver_list)
   return(ver_list[-4:])
 
