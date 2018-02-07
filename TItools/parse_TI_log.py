@@ -3,14 +3,22 @@ import sys
 import re
 import time
 import argparse
-
+import pdb
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-c', '--case', default='ALL')
+parser.add_argument('-c', '--case', default='')
 parser.add_argument('-l', '--log', default='TS_focus.log1')
 parser.add_argument('-H', '--html', action="store_true", default=False)
 parser.add_argument('-f', '--filter', action="store_true", default=False)
 args = parser.parse_args()
+
+
+
+def case_matched(case):
+    if args.case=='':
+        return True
+    else:
+        return re.search(args.case, case)
 
 
 
@@ -27,6 +35,7 @@ sublogfile = open(sublogname, 'w')
 sublogfile.close()
 
 while(1):
+    #pdb.set_trace()
     line = logfile.readline()
     
     if line=='':
@@ -42,17 +51,18 @@ while(1):
     #    line = ' '*(13-len_tag) + line
 
     if 'proc TP_IsamTopLevelTest medium' in line:
+        #pdb.set_trace()
         ret = re.findall('-test .*/(.*?).ars', line)
         case_name = ret[0]
 
-        if case_name==args.case:
+        if case_matched(case_name):
             print('===> case %d: %s' % (case_num, case_name))
         case_num = case_num + 1
         if not sublogfile.closed:
             print('close log file')
             sublogfile.close()
 
-        if case_name==args.case:
+        if case_matched(case_name):
             sublogfile = open('case%d_%s.log' % (case_num, case_name), 'w')
             print('start write sub log file')
 

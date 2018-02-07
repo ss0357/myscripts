@@ -15,7 +15,7 @@ import numpy as np
 from set_excel_format import set_excel_format
 from contextlib import contextmanager
 from requests_futures.sessions import FuturesSession
-
+from log import logger
 
 
 local_log_path = 'D:\\TI_logs\\' if os.name=='nt' else '/var/www/html/TI_logs'
@@ -27,8 +27,8 @@ log_url = 'http://135.251.196.133:8080/atxuser/TI_logs/%s/%s/InstantStatus.html'
 with open(os.path.split(os.path.realpath(__file__))[0]+'/database.yaml', 'r') as stream:
         data = yaml.load(stream)
 
-global result_data
-result_data = pd.read_excel(r'D:\tmp\FTTU_EQMT.xls', sheetname='sheet1', converters={'SNo':str,'Failed_Steps':str, 'Build':str})
+#global result_data
+#result_data = pd.read_excel(r'D:\tmp\FTTU_EQMT.xls', sheetname='sheet1', converters={'SNo':str,'Failed_Steps':str, 'Build':str})
 
 def get_pending_TI(product='FTTU', version=''):
 
@@ -40,16 +40,16 @@ def get_pending_TI(product='FTTU', version=''):
     url = 'http://135.249.31.114/cgi-bin/test/ti_info.cgi?sRelease=&sBuild=%s&sPlatform=%s&sAtc=&sBoard=&sTiType=&sPt=%s'
     pending = []
 
-    print('===> get pending TI from webtia: %s, %s' % (product, str(batch_list[product])))
+    logger.info('===> get pending TI from webtia: %s, %s' % (product, str(batch_list[product])))
 
     for batch in batch_list[product]:
         uu = url % (version, batch, product)
-        print(uu)
+        logger.info(uu)
         try:
             r = requests.get(uu)
             data = r.content.decode('utf-8')
         except:
-            print('===> get TI data from TIAWeb failed')
+            logger.info('===> get TI data from TIAWeb failed')
 
         result = re.findall('<tr><td>.*?</td></tr>', data)
 
@@ -61,7 +61,7 @@ def get_pending_TI(product='FTTU', version=''):
             #    continue
 
             if case_info[10]=='' and ver_in_range(case_info[3]):
-                print(case_info[1:7])
+                logger.info(case_info[1:7])
                 pending.append(case_info[1:10])
 
     #pending = list(set(pending))
@@ -74,10 +74,10 @@ async def get_pending_TI_for_batch(product='FTTU', version='', batch=''):
     url = 'http://135.249.31.114/cgi-bin/test/ti_info.cgi?sRelease=&sBuild=%s&sPlatform=%s&sAtc=&sBoard=&sTiType=&sPt=%s'
     pending = []
 
-    print('===> get pending TI from webtia: %s, %s' % (product, batch))
+    logger.info('===> get pending TI from webtia: %s, %s' % (product, batch))
 
     uu = url % (version, batch, product)
-    print(uu)
+    logger.info(uu)
     r = await requests.get(uu)
     data = r.content.decode('utf-8')
 
@@ -87,7 +87,7 @@ async def get_pending_TI_for_batch(product='FTTU', version='', batch=''):
         case_info = [x.replace('</td>', '').replace('<td>', '')  for x in case.split('<td align=left>')]
 
         if case_info[10]=='' and ver_in_range(case_info[3]):
-            print(case_info[1:7])
+            logger.info(case_info[1:7])
             pending.append(case_info[:10])
 
     #pending = list(set(pending))
@@ -107,7 +107,7 @@ def get_pending_TI_2(product='FTTU', version=''):
         loop = asyncio.get_event_loop()
         for batch in batch_list[product]:
             uu = url % (version, batch, product)
-            print(uu)
+            logger.info(uu)
             ret.append(loop.run_in_executor(None, requests.get, uu))
             
         for r in ret:
@@ -120,7 +120,7 @@ def get_pending_TI_2(product='FTTU', version=''):
                 #if 'CFXRA' in case_info[4]:
                 #    continue
                 if case_info[10]=='' and ver_in_range(case_info[3]) and (int(case_info[1]))>1600000:
-                    print(case_info[1:7])
+                    logger.info(case_info[1:7])
                     pending.append(case_info[1:10])
 
     loop = asyncio.get_event_loop()
@@ -133,13 +133,13 @@ def get_pending_TI_2(product='FTTU', version=''):
 
 
 def download_log_rlab(version, batch):
-    print(log_url % (version, batch))
+    logger.info(log_url % (version, batch))
     os.chdir(local_log_path)
     remotepath = '%s/%s' % (version, batch)
     if (os.path.exists(remotepath+'/apelogs/TS_focus.log1.gz')  \
             or os.path.exists(remotepath+'/apelogs/TS_focus.log1')) \
             and os.path.exists(remotepath+'/InstantStatus.html'):
-        print('log for %s exist, abort download.' % remotepath)
+        logger.info('log for %s exist, abort download.' % remotepath)
         return
 
     t = paramiko.Transport(("172.21.128.21",22))
@@ -167,15 +167,15 @@ def download_log_rlab(version, batch):
             if ff.endswith('.log'):
                 file_list.append(remotepath+'/ARIES/'+ff)
     except:
-        print('download log for %s %s failed' % (version, batch))
+        logger.info('download log for %s %s failed' % (version, batch))
 
 
     for ff in file_list:
-        print('==> download file: %s' % ff)
+        logger.info('==> download file: %s' % ff)
         try:
             sftp.get(ff, ff)
         except:
-            print('download file %s failed')
+            logger.info('download file %s failed')
     t.close()
     os.chdir(remotepath+'/apelogs/')
     os.system('gzip -d TS_focus.log1.gz')
@@ -183,39 +183,63 @@ def download_log_rlab(version, batch):
 
 
 def download_log_ASB(version, batch):
-    print(log_url % (version, batch))
+    #logger.info('dont need download log for SHA batch')
+    #return
+    logger.info(log_url % (version, batch))
     os.chdir(local_log_path)
     localpath = '%s/%s' % (version, batch)
     if (os.path.exists(localpath+'/SB_Logs/apelogs/TS_focus.log1.gz')  \
             or os.path.exists(localpath+'/SB_Logs/apelogs/TS_focus.log1')) \
             and os.path.exists(localpath+'/SB_Logs/InstantStatus.html'):
-        print('log for %s exist, abort download.' % localpath)
+        logger.info('log for %s exist, abort download.' % localpath)
         return
 
     # search logs path on server
-    ret = re.match('SHA_NFXSD_FANTF_FTTU_(.*)_weekly', batch)
+    #version2 = re.sub('0[12]{1}.', '.', version)
+    version2 = version
+    ret = re.match('.*_FTTU_(.*)_weekly', batch)
     domain_name = ret.group(1)
+
+    if batch.startswith('SHA_NFXSD_FANTF'):
+        atxserver_ip = '135.252.245.40'
+        log_subdir = 'ASB-NFXSD-FANTF-FTTU-GPON-WEEKLY*'
+        search_pattern = '-b %s.*? -d %s' % (version2, domain_name)
+
+    if batch.startswith('SHA2_NFXSD_FANTF'):
+        atxserver_ip = '135.252.245.33'
+        log_subdir = 'SHA-NFXSD-FANTF-FTTU-WEEKLY-04'
+        search_pattern = '-b %s.*? -d ROBOT:suite-FTTU,%s' % (version2, domain_name)
+
+    if batch.startswith('SHA_CFXSC_CFNTC'):
+        atxserver_ip = '135.252.245.33'
+        log_subdir = 'SHA-CFXSC-CFNTC-SF8-FTTU-WEEKLY-01'
+        search_pattern = '-b %s.*? -d ROBOT:suite-FTTU,%s' % (version2, domain_name)
+
+    if batch.startswith('SHA_CFXRA_CFNTB'):
+        atxserver_ip = '135.252.245.33'
+        log_subdir = 'SHA-CFXRA-CFNTB-DF16-FTTU-WEEKLY-01'
+        search_pattern = '-b %s.*? -d ROBOT:suite-FTTU,%s' % (version2, domain_name)
+
+
+    logger.info('===> atxserver_ip: %s; log_subdir: %s; search_pattern: %s' % (atxserver_ip, log_subdir, search_pattern))
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    #ssh.connect("135.251.206.171",22,"atxuser", "alcatel01")
-    ssh.connect("135.252.245.40",22,"atxuser", "alcatel01")
-
-    version2 = re.sub('0[12]{1}.', '.', version)
+    ssh.connect(atxserver_ip, 22, "atxuser", "alcatel01")
 
     #search_cmd = "find /tftpboot/atx/logs/ASB-NFXSD-FANTF-FTTU-GPON-WEEKLY*/SD_%s -name \"testsummary.log\" | xargs grep \"d %s\"" % (version, domain_name)
-    search_cmd = "find /tftpboot/atx/logs/ASB-NFXSD-FANTF-FTTU-GPON-WEEKLY*/ -name \"testsummary.log\" | xargs grep -E \"b %s.*?d %s\"" % (version2, domain_name)
+    search_cmd = "find /tftpboot/atx/logs/%s/ -name \"testsummary.log\" | xargs grep -E -- \"%s\"" % (log_subdir, search_pattern)
     stdin, stdout, stderr = ssh.exec_command(search_cmd)
     output = stdout.readlines()
 
     if not output:
-        print('===> download_log_ASB: find log failed, no output')
-        print(search_cmd)
+        logger.info('===> download_log_ASB: find log failed, no output')
+        logger.info(search_cmd)
         return False
 
     ret = re.match('(.*?SB_Logs)/testsummary.log', output[0])
     if not ret:
-        print('===> download_log_ASB: find log failed')
-        print(output[0])
+        logger.info('===> download_log_ASB: find log failed')
+        logger.info(output[0])
         return False
 
     remotepath = ret.group(1)
@@ -223,7 +247,7 @@ def download_log_ASB(version, batch):
     ssh.close()
 
     # scp from server
-    cmd = 'scp -r atxuser@135.252.245.40:%s  %s' % (remotepath, localpath)
+    cmd = 'pscp -r atxuser@%s:%s  %s' % (atxserver_ip, remotepath, localpath)
     print (cmd)
     try:
         os.makedirs(localpath)
@@ -232,9 +256,13 @@ def download_log_ASB(version, batch):
 
     #child = pexpect.spawn(cmd)
     #pdb.set_trace()
-    #child = pexpect.popen_spawn.PopenSpawn(cmd, logfile=sys.stdout)
-    child = pexpect.spawn(cmd)
+    if sys.platform.startswith('win'):
+        child = pexpect.popen_spawn.PopenSpawn(cmd, logfile = sys.stdout.buffer)
+    else:
+        child = pexpect.spawn(cmd)
     index = child.expect([u"(?i)yes/no",u"(?i)password", pexpect.EOF, pexpect.TIMEOUT])
+    #import ipdb
+    #ipdb.set_trace()
     if index==0:
         child.sendline('yes')
         child.expect(u'(?i)password')
@@ -266,7 +294,7 @@ def verify_log_content(case, log_mark):
 
 
 def get_TI_result(case):
-    #print('get_TI_result:', data)
+    #logger.info('get_TI_result:', data)
     batch, case_name, failed_step = case[4], case[5], case[8]
     for x in data:
         if x['case_name'] in case_name and \
@@ -274,7 +302,7 @@ def get_TI_result(case):
             failed_step == x['failed_step'] :
 
             if x.setdefault('log', None) and not verify_log_content(case, x['log']):
-                #print("\t\t find matched case bug verify log content failed")
+                #logger.info("\t\t find matched case bug verify log content failed")
                 continue
             return eval(x['result'])
 
@@ -303,15 +331,15 @@ def get_TI_result_from_excel_file(case):
 
 def _TI_fill_result(s, TI_case):
     TI_id, version, batch = TI_case[0], TI_case[2], TI_case[3]
-    print('fill TI result: ', '  '.join(TI_case))
+    logger.info('fill TI result: ', '  '.join(TI_case))
     #TI_type, NTI, fr_id, commnt = get_TI_result(TI_case)
     TI_type, NTI, fr_id, commnt = get_TI_result_from_excel_file(TI_case)
 
     if TI_type=='':
-      print('\t\tnot found matched result from datebase')
+      logger.info('\t\tnot found matched result from datebase')
       return
 
-    print('\t\t', TI_type, NTI, fr_id, commnt)
+    logger.info('\t\t', TI_type, NTI, fr_id, commnt)
     url = "http://135.249.31.173/webtia/modalpopup.php?id=%s" % batch
     payload = {
         'form_margin_remove_length': '10',
@@ -326,12 +354,12 @@ def _TI_fill_result(s, TI_case):
         'auto_suggest[%s]'%TI_id : '',
         'formSubmit' : 'Save',
     }
-    #print(payload)
+    #logger.info(payload)
     r = s.post(url, payload)
     if '#alert-pass' in r.text:
-        print('\t\tsuccess')
+        logger.info('\t\tsuccess')
     else:
-        print('\tfailed')
+        logger.info('\tfailed')
 
 
 def found_TI_result(case):
@@ -345,12 +373,12 @@ def found_TI_result(case):
 def TI_fill_result(s, pending, username='no one'):
 
     cocurrent = 8
-    print('===> TIs not found result from excel file:')
+    logger.info('===> TIs not found result from excel file:')
     for case in pending:
         TI_id, version, batch = case[0], case[3], case[4]
         if not found_TI_result(case):
-            print('\t', '  '.join(case[2:5]))
-            print('\t', get_TI_result_from_excel_file(case))
+            logger.info('\t', '  '.join(case[2:5]))
+            logger.info('\t', get_TI_result_from_excel_file(case))
 
     pending2 = [case for case in pending if found_TI_result(case)]
     for x,y in zip(range(0,len(pending2), cocurrent), range(cocurrent, len(pending2)+cocurrent, cocurrent)):
@@ -362,13 +390,13 @@ def TI_fill_result(s, pending, username='no one'):
 def TI_fill_result_future(fs, many_cases, username='no one'):
     ret = {}
 
-    print('\n\n' + '#'*80)
+    logger.info('\n\n' + '#'*80)
     for case in many_cases:
         TI_id, version, batch = case[0], case[2], case[3]
         TI_type, NTI, fr_id, commnt = get_TI_result_from_excel_file(case)
 
-        print('fill TI result: ', '  '.join(case[2:5]))
-        print('\t\t', TI_type, NTI, fr_id, commnt)
+        logger.info('fill TI result: ', '  '.join(case[2:5]))
+        logger.info('\t\t', TI_type, NTI, fr_id, commnt)
 
         url = "http://135.249.31.173/webtia/modalpopup.php?id=%s" % batch
         payload = {
@@ -387,17 +415,17 @@ def TI_fill_result_future(fs, many_cases, username='no one'):
 
         ret[TI_id] = fs.post(url, payload)
 
-    print('\n\n' + '#'*80)
+    logger.info('\n\n' + '#'*80)
     for case in many_cases:
         TI_id, version, batch = case[0], case[2], case[3]
-        #print('fill TI result: ', '  '.join(case))
+        #logger.info('fill TI result: ', '  '.join(case))
         TI_type, NTI, fr_id, commnt = get_TI_result_from_excel_file(case)
-        print('verify TI result: ', '  '.join(case[2:5]))
+        logger.info('verify TI result: ', '  '.join(case[2:5]))
         response = ret[TI_id].result()
         if response.status_code==200 and '#alert-pass' in response.text:
-            print('\t\tsuccess')
+            logger.info('\t\tsuccess')
         else:
-            print('\tfailed')
+            logger.info('\tfailed')
 
 
 
@@ -422,7 +450,7 @@ def ver_in_range(ver):
       ver2_1 = int(ver2_1)
       ver2_2 = int(ver2_2)
 
-      #print('check ver: ', ver1_1, ver1_2, ver2_1, ver2_2)
+      #logger.info('check ver: ', ver1_1, ver1_2, ver2_1, ver2_2)
       if ver1_1 == ver2_1 and ver1_2<=ver2_2:
         return False
 
@@ -434,7 +462,7 @@ if __name__ == '__main__':
     download_log(version, batch)
     #with open('database.yaml', 'r') as stream:
     #    data = yaml.load(stream)
-    #print(data)
+    #logger.info(data)
     
 
 
@@ -460,22 +488,22 @@ def update_excel_file(excel_file, cases, sheetname='sheet1'):
     writer = pd.ExcelWriter('FTTU_EQMT_raw.xls')
     concat_data.to_excel(writer,sheetname)
     writer.save()
-    print('===> excel file updated: D:\\tmp\\FTTU_EQMT_raw.xls')
+    logger.info('===> excel file updated: D:\\tmp\\FTTU_EQMT_raw.xls')
     set_excel_format()
 
 
 @contextmanager
 def webtia_session(username, password):
-    print('login')
+    logger.info('login')
     #s = requests.Session()
     fs = FuturesSession()
     payload = {'redi': 'index.php', 'pid': username, 'password':password, 'btnsubmit': 'login'}
     r = fs.post("http://135.249.31.173/webtia/login.php", data=payload)
     r = r.result()
     if r.status_code== 200 and b'Authenticate successful' in r.content:
-        print('===> login successful')
+        logger.info('===> login successful')
     else:
-        print('===> login failed with %s %s' % (username, '*********'))
+        logger.info('===> login failed with %s %s' % (username, '*********'))
         exit()
     yield fs
-    print('logout')
+    logger.info('logout')
