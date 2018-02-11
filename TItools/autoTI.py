@@ -240,7 +240,8 @@ class AutoTI(object):
 
         logger.info('===> %s TIs will filled:' % len(self.TI_filled))
         for case in self.TI_filled:
-            logger.info('\t', case, self.TI_filled[case]['Build'], self.TI_filled[case]['ATC'], self.TI_filled[case]['Platform'])
+            logger.info('\t' + '  ' + case + '  ' + self.TI_filled[case]['Build'] + '  ' + self.TI_filled[case]['ATC']
+                 + '  ' + self.TI_filled[case]['Platform'])
 
         logger.info('\n\n' + '#'*80)
         username = input('===> please input your username:')
@@ -259,8 +260,10 @@ class AutoTI(object):
         ret = {}
         logger.info('\n\n' + '#'*80)
         for case in tid_list:
-            logger.info('fill TI result: ', case, self.TI_filled[case]['Build'], self.TI_filled[case]['ATC'], self.TI_filled[case]['Platform'])
-            logger.info('\t\t', self.TI_filled[case]['TI_Type'],self.TI_filled[case]['NEW_TI'],self.TI_filled[case]['FRID'],self.TI_filled[case]['Comments'])
+            logger.info('fill TI result: ' + '  ' + case + '  ' + self.TI_filled[case]['Build']
+                 + '  ' + self.TI_filled[case]['ATC'] + '  ' + self.TI_filled[case]['Platform'])
+            logger.info('\t\t' + '  ' + self.TI_filled[case]['TI_Type'] + '  ' + self.TI_filled[case]['NEW_TI']
+                 + '  ' + self.TI_filled[case]['FRID'] + '  ' + self.TI_filled[case]['Comments'])
 
             TI_id = case
             batch = self.TI_filled[case]['Platform']
@@ -288,7 +291,8 @@ class AutoTI(object):
 
         logger.info('\n\n' + '#'*80)
         for case in tid_list:
-            logger.info('verify TI result: ', case, self.TI_filled[case]['Build'], self.TI_filled[case]['ATC'], self.TI_filled[case]['Platform'])
+            logger.info('verify TI result: ' + '  ' + case + '  ' + self.TI_filled[case]['Build']
+                 + '  ' + self.TI_filled[case]['ATC'] + '  ' + self.TI_filled[case]['Platform'])
             response = ret[case].result()
             if response.status_code==200 and '#alert-pass' in response.text:
                 logger.info('\t\tsuccess')
