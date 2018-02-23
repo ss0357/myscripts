@@ -23,7 +23,7 @@ args = parser.parse_args()
 
 def get_TI_result_excel(exfile):
 
-    TI_result = []
+    TI_result = {}
 
     try:
         data = xlrd.open_workbook(exfile)
@@ -34,12 +34,14 @@ def get_TI_result_excel(exfile):
     table = data.sheets()[0]
 
     for case in range(1, table.nrows):
-        if int(table.row_values(case)[-1]) > 0 and table.row_values(case)[-5] != '':
-            case_name = table.row_values(case)[5]
-            TI_type = table.row_values(case)[-5]
-            NTI = table.row_values(case)[-4].upper()
-            fr_id = table.row_values(case)[-3]
-            commnt= table.row_values(case)[-2][0:100]
+        if table.row_values(case)[2]=='TI':
+            pdb.set_trace()
+
+            case_name = table.row_values(case)[0]
+            TI_type = table.row_values(case)[6]
+            NTI = table.row_values(case)[8].upper()
+            fr_id = table.row_values(case)[5]
+            commnt= table.row_values(case)[9][0:100]
 
             #assert(TI_type in ['ATC', 'SW', 'ENV', 'NonReproducible', 'Inconsistent'])
             #assert(NTI in ['YES', 'NO'])
@@ -50,7 +52,7 @@ def get_TI_result_excel(exfile):
                 print('===> new TI must be YES or NO')
                 exit(-1)
 
-            TI_result.append(table.row_values(case))
+            TI_result[case_name] = dict(TI_type=TI_type, NTI=NTI, fr_id=fr_id, commnt=commnt)
 
     data.release_resources()
     return TI_result
@@ -89,15 +91,15 @@ def TI_fill_result_future(fs, many_cases, username='no one'):
     ret = {}
 
     for case in many_cases:
-        TI_id, version, batch = case[1], case[3], case[4]
+        TI_id, version, batch = case[0], case[2], case[3]
         #TI_type, NTI, fr_id, commnt = get_TI_result_from_excel_file(case)
         #import pdb; pdb.set_trace()
-        TI_type = case[-5]
-        NTI     = case[-4]
-        fr_id   = case[-3]
-        commnt  = case[-2][:100]
+        TI_type = TI_result[case[4]]['TI_type']
+        NTI     = TI_result[case[4]]['NTI']
+        fr_id   = TI_result[case[4]]['fr_id']
+        commnt  = TI_result[case[4]]['commnt']
 
-        print('fill TI result: ', '  '.join(case[2:6]))
+        print('fill TI result: ', '  '.join(case[2:5]))
         print(TI_type, NTI, fr_id, commnt)
         if TI_type=='':
           print('\t\tnot found matched result from datebase')
@@ -113,7 +115,7 @@ def TI_fill_result_future(fs, many_cases, username='no one'):
             'NTI[%s]'%TI_id : NTI,
             'fr_id[%s]'%TI_id : fr_id,
             'commnt[%s]'%TI_id : commnt,
-            'User_name[%s]'%TI_id : username,
+            'User_name[%s]'%TI_id : 'no_one',
             'auto_suggest[%s]'%TI_id : '',
             'formSubmit' : 'Save',
         }
@@ -122,20 +124,53 @@ def TI_fill_result_future(fs, many_cases, username='no one'):
 
     print('\n\n' + '#'*80)
     for case in many_cases:
-        TI_id, version, batch = case[1], case[3], case[4]
-        TI_type = case[-5]
-        NTI     = case[-4]
-        fr_id   = case[-3]
-        commnt  = case[-2][:100]
+        TI_id, version, batch = case[0], case[2], case[3]
+        #print('fill TI result: ', '  '.join(case))
+        #TI_type, NTI, fr_id, commnt = get_TI_result_from_excel_file(case)
+        TI_type = TI_result[case[4]]['TI_type']
+        NTI     = TI_result[case[4]]['NTI']
+        fr_id   = TI_result[case[4]]['fr_id']
+        commnt  = TI_result[case[4]]['commnt']
+        #print('\t\t', TI_type, NTI, fr_id, commnt)
         if TI_type=='':
             continue
 
-        print('verify TI result: ', '  '.join(case[2:6]))
+        print('verify TI result: ', '  '.join(case[2:5]))
         response = ret[TI_id].result()
-        if response.status_code==200 and '#alert-pass' in response.text:
+        if response.status_code==200 and '#alert-pass' in response.content:
             print('\t\tsuccess')
         else:
             print('\tfailed')
+
+
+
+def get_pending_TI(product='FTTU', batch='FTTU_SETUP_weekly', version='', all_TI=False):
+
+    pending = []
+    url = 'http://135.249.31.114/cgi-bin/test/ti_info.cgi?sRelease=&sBuild=%s&sPlatform=%s&sAtc=&sBoard=&sTiType=&sPt=%s'
+    print('===> get pending TI from webtia: %s, %s' % (product, batch))
+    uu = url % (version, batch, product)
+    #print(uu)
+    try:
+        import requests
+        r = requests.get(uu)
+        data = r.content.decode('utf-8')
+    except:
+        print('===> get TI data from TIAWeb failed')
+        exit(-1)
+
+    result = re.findall('<tr><td>.*?</td></tr>', data)
+    for case in result:
+        case_info = [x.replace('</td>', '').replace('<td>', '') for x in case.split('<td align=left>')]
+        if all_TI:
+            print(case_info[1:7])
+            pending.append(case_info[1:10])
+        else:
+            if case_info[10]=='':
+                print(case_info[1:7])
+                pending.append(case_info[1:10])
+
+    return pending
 
 
 @contextmanager
@@ -160,16 +195,34 @@ def webtia_session(username, password):
 if __name__ == '__main__':
 
     exfile = os.path.basename(args.exfile)
+    version = exfile.split('_')[0]
+    batch = '_'.join(exfile.split('_')[1:])
+    batch = batch.split('.')[0]
+    product = 'FTTU' if 'PORTPROT' not in batch else 'PORTPROT'
+    print('===> product: %s;  version: %s;  batch: %s' % (product, version, batch))
+
+
+    print('\n\n' + '#'*80)
+    print('===> pending case list:')
+    pending_case = get_pending_TI(product, batch, version, all_TI=args.all)
+    if not pending_case:
+        print('===> no pending TI')
+        exit()
+
 
     print('\n\n' + '#'*80)
     print('===> search TI result from excel file:')
-    pending_case = get_TI_result_excel(args.exfile)
-
+    TI_result = get_TI_result_excel(args.exfile)
     for case in pending_case:
-        print(case)
+        case_name = case[5]
+        if case_name not in TI_result:
+            print('===> not found TI result from excel file for case: %s' % case_name)
+            continue
+        print('===> TI_result: %s' % str(TI_result[case_name]))
+
 
     print('\n\n' + '#'*80)
-    username = input('please input your username:')
+    username = raw_input('please input your username:')
     password = getpass.getpass('password:')
 
     print('\n\n' + '#'*80)
@@ -181,8 +234,11 @@ if __name__ == '__main__':
     #            TI_fill_result(s, case, username=username)
 
     with webtia_session(username, password) as s:
-        TI_fill_result_future(s, pending_case, username=username)
+        for many_cases in pending_case[::10]:
+            TI_fill_result_future(s, many_cases, username=username)
 
 
-
+    print('\n\n' + '#'*80)
+    print('===> pending case list after auto fill:')
+    pending_case = get_pending_TI(product, batch, version)
 

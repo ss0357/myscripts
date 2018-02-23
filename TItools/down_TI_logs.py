@@ -16,16 +16,17 @@ from set_excel_format import set_excel_format
 from contextlib import contextmanager
 from requests_futures.sessions import FuturesSession
 from log import logger
+import settings
 
 
-local_log_path = 'D:\\TI_logs\\' if os.name=='nt' else '/var/www/html/TI_logs'
+local_log_path = settings.local_log_path
 #local_log_path = 'D:\\TI_logs\\' if os.name=='nt' else '/home/atxuser/TI_logs'
 #log_url = 'http://135.252.240.214:8080/TI_logs/%s/%s/InstantStatus.html'
 log_url = 'http://135.251.196.133:8080/atxuser/TI_logs/%s/%s/InstantStatus.html'
 
 
-with open(os.path.split(os.path.realpath(__file__))[0]+'/database.yaml', 'r') as stream:
-        data = yaml.load(stream)
+#with open(os.path.split(os.path.realpath(__file__))[0]+'/database.yaml', 'r') as stream:
+#        data = yaml.load(stream)
 
 #global result_data
 #result_data = pd.read_excel(r'D:\tmp\FTTU_EQMT.xls', sheetname='sheet1', converters={'SNo':str,'Failed_Steps':str, 'Build':str})
@@ -109,7 +110,7 @@ def get_pending_TI_2(product='FTTU', version=''):
             uu = url % (version, batch, product)
             logger.info(uu)
             ret.append(loop.run_in_executor(None, requests.get, uu))
-            
+
         for r in ret:
             response1 = await r
             data = response1.content.decode('utf-8')
@@ -463,7 +464,7 @@ if __name__ == '__main__':
     #with open('database.yaml', 'r') as stream:
     #    data = yaml.load(stream)
     #logger.info(data)
-    
+
 
 
 def update_excel_file(excel_file, cases, sheetname='sheet1'):

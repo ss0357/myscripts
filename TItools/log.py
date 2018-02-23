@@ -1,7 +1,8 @@
 import logging
 import sys
+import settings
 
-log_path = r'D:\songsonl\check_TI.log'
+log_path = settings.log_path
 logger = logging.getLogger("AppName")
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s: %(message)s')
 file_handler = logging.FileHandler(log_path)

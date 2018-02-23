@@ -73,6 +73,7 @@ ActivateAndOpen(t,p)
 
 #W::
   OutputVar := StrReplace(Clipboard, "/home/songsonl/tmp", "D:/tmp3")
+  OutputVar := Trim(OutputVar)
   Run %OutputVar%
   return
 

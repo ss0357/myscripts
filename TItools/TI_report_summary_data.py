@@ -11,11 +11,16 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--domain', dest='product', required=True, choices=['FTTU', 'PORTPROT'])
 parser.add_argument('-v', '--version', required=True)
-parser.add_argument('-w', '--week', required=True)
-parser.add_argument('-s', '--slot', required=True)
-parser.add_argument('-u', '--username', required=True)
-parser.add_argument('-p', '--password', required=True)
+parser.add_argument('-w', '--week', default='')
+parser.add_argument('-s', '--slot', default='')
+parser.add_argument('-u', '--username', default='')
+parser.add_argument('-p', '--password', default='')
 args = parser.parse_args()
+
+if args.week=='' or args.slot=='':
+    from settings import slot_map
+    args.week, args.slot = slot_map[args.version]
+
 product, version, week, slot = args.product, args.version, args.week, args.slot
 ws = 'W%s slot %s' % (week, slot)
 print(product, version, week, slot)
@@ -33,14 +38,16 @@ today = time.strftime('%Y/%m/%d',time.localtime(time.time()))
 
 
 def get_batch_owner(batch):
-    if 'SETUP' in batch or 'EQMT' in batch or 'L3FWD' in batch:
+    if  'EQMT' in batch or 'L3FWD' in batch:
         return 'Li Songsong'
     elif 'QOS' in batch:
         return 'Wang Liyun'
-    elif 'MCAST' in batch:
+    elif 'MCAST' in batch or 'SETUP' in batch:
         return 'Yang Hong G'
     elif 'TRANSPORT' in batch or 'SUBMGMT' in batch:
         return 'Ma Hui C'
+    elif 'TRANSPORT' in batch:
+        return 'Zhang Xiaohang'
     elif 'MGMT' in batch and 'SUBMGMT' not in batch:
         return 'Zhang Jieming'
     elif 'L2FWD' in batch:
@@ -101,17 +108,28 @@ def generate_issue_info(product):
             elif case_info[4] in issue and iss not in issue[case_info[4]]:
                 issue[case_info[4]] += '; ' + iss
 
+        NEWTI.setdefault(case_info[4], 0)
+        if 'YES' == case_info[11]:
+            NEWTI[case_info[4]] += 1
+
     print('===> issue list:')
     for x in issue:
         print('     %s\t\t%s' % (x, issue[x]))
+    print('===> new TI list:')
+    for x in NEWTI:
+        print('     %s\t\t%d' % (x, NEWTI[x]))
+
 
 issue = {}
+NEWTI = {}
 generate_issue_info(product)
 
-#username = input('please input your username:')
-#password = getpass.getpass('password:')
-#username, password = 'svc_hetran', 'asb#2345'
-username, password = args.username, args.password
+if args.username == '':
+    username = input('please input your CSL username:')
+    password = getpass.getpass('password:')
+    #username, password = 'svc_hetran', 'asb#2345'
+else:
+    username, password = args.username, args.password
 
 s = requests.Session()
 payload = {'redi': 'index.php', 'pid': username, 'password':password, 'btnsubmit': 'login'}
@@ -148,13 +166,14 @@ for i in range(0, len(a_list), 2):
         ok_case = total_case - fail_case
         owner =  get_batch_owner(batch)
         iss = issue.get(batch, '')
-        dd = dict(batch=batch,total_case=total_case, fail_case=fail_case,ok_case=ok_case,owner=owner, iss=iss)
+        new_ti = str(NEWTI.get(batch, 0))
+        dd = dict(batch=batch,total_case=total_case, fail_case=fail_case,ok_case=ok_case,owner=owner, iss=iss, new_ti=new_ti)
         #print(dd)
         batch_list.append(dd)
 
 print('===> len of batch: %d' % len(batch_list))
 for x in batch_list:
-    print('     %s\t%d\t%d\t%d\t%s\t%s' % (x['batch'], x['total_case'], x['ok_case'], x['fail_case'], x['owner'], x['iss']))
+    print('     %s\t%d\t%d\t%d\t%s\t%s\t%s' % (x['batch'], x['total_case'], x['ok_case'], x['fail_case'], x['owner'], x['iss'], x['new_ti']))
 
 r = s.get(url_logout)
 
@@ -169,9 +188,9 @@ except:
 os.chdir(sub_rep_path)
 print('===> enter report path: %s' % os.getcwd())
 
-filename = 'Week17%s-Slot%s-GPON_SB_TI_Summary-%s_%s.csv' % (week,slot,version,product)
+filename = 'Week%s-Slot%s-GPON_SB_TI_Summary-%s_%s.csv' % (week,slot,version,product)
 with open(filename, 'w') as ff:
     for x in batch_list:
         #ff.write('%s,%s,%s,%s,%d,%d,%d,%s,%s\n' % (today, ws, x['batch'],version, x['total_case'], x['ok_case'], x['fail_case'], x['iss'], x['owner']))
-        ff.write('%s,%s,%s,%d,%d,%d,%s,%s\n' % (today, ws, x['batch'], x['total_case'], x['ok_case'], x['fail_case'], x['iss'], x['owner']))
+        ff.write('%s,%s,%s,%d,%d,%d,%s,%s,%s\n' % (version, ws, x['batch'], x['total_case'], x['ok_case'], x['fail_case'], '"%s\"' % x['iss'], x['owner'], x['new_ti']))
 

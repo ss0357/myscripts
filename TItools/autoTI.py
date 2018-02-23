@@ -17,6 +17,7 @@ from contextlib import contextmanager
 from requests_futures.sessions import FuturesSession
 from down_TI_logs import download_log
 from log import logger
+import settings
 
 
 class TICase(object):
@@ -37,35 +38,30 @@ class TICase(object):
 
 class AutoTI(object):
 
-    def __init__(self, version='', domain='FTTU'):
-        batch_list = {
-            'FTTU2': ['FTTU_L3FWD_weekly'],
-            #'FTTU': ['FTTU_L3FWD_weekly', 'FTTU_SETUP_weekly', 'FTTU_EQMT_weekly'],
-            'FTTU': ['FTTU_L3FWD_weekly', 'FTTU_EQMT_weekly'],
-            'PORTPROT': ['NFXSB_NANTE_REDUND_PORTPROT_weekly', 'NFXSE_FANTF_REDUND_PORTPROT_weekly']
-        }
+    def __init__(self, version='', domain='FTTU', compare=''):
         self.version = version
         self.domain = domain
-        self.batch_list = batch_list[domain]
+        self.batch_list = settings.batch_list[domain]
+        self.result_path = settings.result_path
+        self.local_log_path = settings.local_log_path
 
-        if self.domain=='FTTU':
-            self.result_file = 'FTTU_EQMT.xls'
-            self.result_file_raw = 'FTTU_EQMT_raw.xls'
-            self.result_file_new = 'FTTU_EQMT_new.xls'
-            self.result_file_old = 'FTTU_EQMT_old.xls'
-        elif self.domain=='PORTPROT':
-            self.result_file = 'A2A.xls'
-            self.result_file_raw = 'A2A_raw.xls'
-            self.result_file_new = 'A2A_new.xls'
-            self.result_file_old = 'A2A_old.xls'
+        self.compare = []
+        compare = compare.split(',')
+        for ver in compare:
+            if '.' in ver:
+                self.compare.append(ver.strip('\"'))
+            else:
+                self.compare.append(ver.strip('\"')+'.')
 
-        if os.name=='nt':
-            self.result_path = r'D:\TI_logs\result'
-            self.local_log_path = 'D:\\TI_logs\\'
+        self.result_file = '%s.xls' % domain
+        self.result_file_raw = '%s_raw.xls' % domain
+        self.result_file_new = '%s_new.xls' % domain
+        self.result_file_old = '%s_old.xls' % domain
+
+        if self.domain in ['A2A', 'PORTPROT', 'REDUND']:
+            self.pt = 'PORTPROT'
         else:
-            self.result_path = '/home/songsonl/TI_logs/result'
-            self.local_log_path = '/var/www/html/TI_logs'
-
+            self.pt = 'FTTU'
 
 
     def get_pending_TI(self):
@@ -74,7 +70,7 @@ class AutoTI(object):
         logger.info('===> get pending TI from webtia: %s, %s' % (self.domain, str(self.batch_list)))
 
         for batch in self.batch_list:
-            uu = url % (self.version, batch, self.domain)
+            uu = url % (self.version, batch, self.pt)
             logger.info(uu)
             try:
                 r = requests.get(uu)
@@ -88,12 +84,71 @@ class AutoTI(object):
 
                 if case_info[10]=='' and int(case_info[1])>1600000 and self.ver_in_range(case_info[3]):
                     logger.info(case_info[1:7])
-                    if self.domain=='FTTU':
+                    if self.pt=='FTTU':
                         self.pending.append(TICase(case_info[1:14]))
 
-                if self.domain=='PORTPROT':
+                if self.pt=='PORTPROT':
                     self.pending.append(TICase(case_info[1:14], flag=0))
 
+
+    def get_old_result(self):
+        self.old_result = []
+        url = 'http://135.249.31.114/cgi-bin/test/ti_info.cgi?sRelease=&sBuild=%s&sPlatform=%s&sAtc=&sBoard=&sTiType=&sPt=%s'
+        logger.info('===> get TI old result from webtia: %s, %s' % (self.domain, str(self.batch_list)))
+        logger.info('===> comapre list: %s' % str(self.compare))
+
+        for batch in self.batch_list:
+            for ver in self.compare:
+                uu = url % (ver, batch, self.pt)
+                logger.info(uu)
+                try:
+                    r = requests.get(uu)
+                    data = r.content.decode('utf-8')
+                except:
+                    logger.info('===> get TI data from TIAWeb failed')
+
+                result = re.findall('<tr><td>.*?</td></tr>', data)
+                for case in result:
+                    case_info = [x.replace('</td>', '').replace('<td>', '') for x in case.split('<td align=left>')]
+                    logger.debug(case_info[1:7])
+                    self.old_result.append(TICase(case_info[1:14]))
+
+
+    def save_compare_result(self):
+        self.columns = ['SNo','Stream','Build','Platform','ATC','Board','ONT','Failed_Steps','RESULT', 'TI_Type','NEW_TI','FRID','Comments', 'flag']
+        sheetname='sheet1'
+        os.chdir(self.result_path)
+        #old_data = pd.read_excel(self.result_file, sheetname=sheetname, converters={'SNo':str,'Failed_Steps':str, 'Build':str, 'flag':str})
+
+        old_cases = [case.to_list() for case in self.old_result]
+        old_data = pd.DataFrame(old_cases, columns=self.columns)
+        writer = pd.ExcelWriter(self.result_file_old)
+        old_data.to_excel(writer,sheetname)
+        writer.save()
+
+        # update flag
+        pending = [case.SNo for case in self.pending]
+        old_data['flag'] = old_data['SNo'].where(old_data['SNo'].isin(pending), 0).where(~old_data['SNo'].isin(pending), 1)
+
+        cases = [case.to_list() for case in self.pending]
+        new_data = pd.DataFrame(cases, columns=self.columns)
+        writer = pd.ExcelWriter(self.result_file_new)
+        new_data.to_excel(writer,sheetname)
+        writer.save()
+
+        concat_data = pd.concat([old_data,new_data]).drop_duplicates('SNo').reset_index(drop=True)
+        concat_data = concat_data[self.columns]
+
+        concat_data = concat_data.sort_values(["SNo"],ascending=False)
+        #import pdb; pdb.set_trace()
+        concat_data = self.map_result(concat_data)
+        concat_data = concat_data[self.columns]
+
+        writer = pd.ExcelWriter(self.result_file_raw)
+        concat_data.to_excel(writer,sheetname, na_rep='')
+        writer.save()
+        logger.info('===> excel file updated: %s' % self.result_file_raw)
+        set_excel_format(self.result_file_raw, self.result_file)
 
 
     def ver_in_range(self, ver):
@@ -175,8 +230,12 @@ class AutoTI(object):
                 if str(case[x])=='nan':
                     case[x] = ''
 
+        pending = [case.SNo for case in self.pending]
+
         for case in ddata:
             if case['TI_Type']!='':
+                continue
+            if case['SNo'] not in pending:
                 continue
             for his_case in ddata:
                 if his_case['TI_Type']=='' or  int(case['SNo'])<int(his_case['SNo']) or his_case['TI_Type']=='NonReproducible':

@@ -10,12 +10,18 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--domain', dest='product', required=True, choices=['FTTU', 'PORTPROT'])
 parser.add_argument('-v', '--version', required=True)
-parser.add_argument('-w', '--week', required=True)
-parser.add_argument('-s', '--slot', required=True)
+parser.add_argument('-w', '--week', default='')
+parser.add_argument('-s', '--slot', default='')
 args = parser.parse_args()
 product, version, week, slot = args.product, args.version, args.week, args.slot
+
+from settings import slot_map
+week, slot = slot_map[args.version]
 print(product, version, week, slot)
 
+if week == '' or slot == '':
+  print('invalid week or slot')
+  exit()
 if int(slot)%2==0 and product=='PORTPROT':
   print('PORTPROT not run on slot 2 or slot 4')
   exit()
@@ -46,6 +52,9 @@ def check_pending_cases(version):
           continue
         #if 'SHA_CFXRA_CFNTB' in case_info[4]:
         #  continue
+        if case_info[9] == 'NOT_RUN':
+          print( 'abort NOT_RUN ' + '\t\t'.join(case_info[3:6]))
+          continue
         print('\t\t'.join(case_info[3:6]))
         pending.append("%s____%s" % (case_info[3],case_info[4]))
 
@@ -124,7 +133,7 @@ if check_pending_cases(version):
     pass
   os.chdir(sub_rep_path)
   print('===> enter report path: %s' % os.getcwd())
-  filename = 'Week17%s-Slot%s-GPON_SB_TI_Summary-%s_%s' % (week,slot,version,product)
+  filename = 'Week%s-Slot%s-GPON_SB_TI_Summary-%s_%s' % (week,slot,version,product)
   get_summary_chart.get_pdf_report(filename, rep_url)
   get_summary_chart.get_webpage_screenshot(filename, rep_url)
 
