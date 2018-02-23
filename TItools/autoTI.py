@@ -82,6 +82,13 @@ class AutoTI(object):
             for case in result:
                 case_info = [x.replace('</td>', '').replace('<td>', '') for x in case.split('<td align=left>')]
 
+                #if int(slot)%2==0 and case_info[4].startswith('SHA_NFXSD'):
+                #    print( 'abort SHA_NFXSD slot24 ' + '\t\t'.join(case_info[3:6]))
+                #    continue
+                if case_info[9] == 'NOT_RUN':
+                    logger.debug( 'abort NOT_RUN ' + '\t\t'.join(case_info[3:6]))
+                    continue
+
                 if case_info[10]=='' and int(case_info[1])>1600000 and self.ver_in_range(case_info[3]):
                     logger.info(case_info[1:7])
                     if self.pt=='FTTU':

@@ -20,7 +20,7 @@ ssh = paramiko.SSHClient()
 # 允许将信任的主机自动加入到host_allow 列表，此方法必须放在connect方法的前面
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 # 调用connect方法连接服务器
-ssh.connect(hostname='135.251.206.240', port=22, username='songsonl', password='soup.633')
+ssh.connect(hostname='135.251.206.240', port=22, username='songsonl', password='Soup.633')
 
 # 执行命令
 
