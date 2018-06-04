@@ -56,7 +56,7 @@ def set_excel_format(input_file, output_file):
     for x in range(r_sheet.ncols):
         w_sheet.write_merge(0,0,x,x, r_sheet.row_values(0)[x], style=HeaderStyle)
 
-    column_width = [1000, 2500, 2500, 2500, 11500, 7500, 2500, 2500, 2500, 2500, 2500, 2500, 3500, 12500, 1000]
+    column_width = [1000, 2500, 2500, 2500, 11500, 7500, 2500, 2500, 2500, 2500, 2500, 2500, 3500, 12500, 2000, 1000]
     for x in range(r_sheet.ncols):
         w_sheet.col(x).width = column_width[x]
 
@@ -106,7 +106,7 @@ def set_excel_format(input_file, output_file):
     for x in range(r_sheet.ncols):
         for y in range(1, r_sheet.nrows):
             #logger.info('flag: %s' % r_sheet.row_values(y)[14])
-            flag = int(r_sheet.row_values(y)[14])
+            flag = int(r_sheet.row_values(y)[15])
             if flag==0:
                 CellStyle = CellStyle0
             elif flag==1:
@@ -118,13 +118,13 @@ def set_excel_format(input_file, output_file):
 
             w_sheet.write_merge(y,y,x,x, r_sheet.row_values(y)[x], style=CellStyle)
 
-            
+
     #for y in range(99):
     #    CellPattern1 = xlwt.Pattern()
     #    CellPattern1.pattern = 1
     #    CellPattern1.pattern_fore_colour = y
     #    CellStyle1.pattern = CellPattern1
     #    w_sheet.write_merge(y,y,14,14, label=str(y), style=CellStyle1)
-            
-            
+
+
     wb.save(output_file)

@@ -18,6 +18,7 @@ from requests_futures.sessions import FuturesSession
 from down_TI_logs import download_log
 from log import logger
 import settings
+import shutil
 
 
 class TICase(object):
@@ -25,7 +26,7 @@ class TICase(object):
     def __init__(self, case_info, flag=1):
         self.SNo, self.Stream, self.Build, self.Platform, self.ATC,\
         self.Board, self.ONT, self.Failed_Steps, self.RESULT,\
-        self.TI_Type, self.NEW_TI, self.FRID, self.Comments = case_info
+        self.TI_Type, self.NEW_TI, self.FRID, self.Comments, self.User = case_info
 
         self.flag = flag
         #logger.info(self.to_list())
@@ -33,17 +34,24 @@ class TICase(object):
     def to_list(self):
         return [self.SNo, self.Stream, self.Build, self.Platform, self.ATC,\
         self.Board, self.ONT, self.Failed_Steps, self.RESULT,\
-        self.TI_Type, self.NEW_TI, self.FRID, self.Comments, self.flag]
+        self.TI_Type, self.NEW_TI, self.FRID, self.Comments, self.User, self.flag]
 
 
 class AutoTI(object):
 
-    def __init__(self, version='', domain='FTTU', compare=''):
+    def __init__(self, version='', domain='FTTU', compare='', week='xxxx', slot='x', username='', password=''):
         self.version = version
         self.domain = domain
         self.batch_list = settings.batch_list[domain]
         self.result_path = settings.result_path
+        self.report_path = settings.report_path
         self.local_log_path = settings.local_log_path
+        self.week, self.slot = week, slot
+        self.username, self.password = username, password
+        if self.username:
+            self.result_path += '/%s' % self.username
+        if not os.path.exists(self.result_path):
+            os.mkdir(self.result_path)
 
         self.compare = []
         compare = compare.split(',')
@@ -60,8 +68,11 @@ class AutoTI(object):
 
         if self.domain in ['A2A', 'PORTPROT', 'REDUND']:
             self.pt = 'PORTPROT'
+        elif self.domain in ['P2P', ]:
+            self.pt = 'P2P'
         else:
             self.pt = 'FTTU'
+        logger.info('pt is %s' % self.pt)
 
 
     def get_pending_TI(self):
@@ -92,10 +103,10 @@ class AutoTI(object):
                 if case_info[10]=='' and int(case_info[1])>1600000 and self.ver_in_range(case_info[3]):
                     logger.info(case_info[1:7])
                     if self.pt=='FTTU':
-                        self.pending.append(TICase(case_info[1:14]))
+                        self.pending.append(TICase(case_info[1:15]))
 
-                if self.pt=='PORTPROT':
-                    self.pending.append(TICase(case_info[1:14], flag=0))
+                    if self.pt=='PORTPROT':
+                        self.pending.append(TICase(case_info[1:15], flag=0))
 
 
     def get_old_result(self):
@@ -118,11 +129,40 @@ class AutoTI(object):
                 for case in result:
                     case_info = [x.replace('</td>', '').replace('<td>', '') for x in case.split('<td align=left>')]
                     logger.debug(case_info[1:7])
-                    self.old_result.append(TICase(case_info[1:14]))
+                    self.old_result.append(TICase(case_info[1:15]))
+
+
+    def save_old_result(self):
+        self.columns = ['SNo','Stream','Build','Platform','ATC','Board','ONT','Failed_Steps','RESULT', 'TI_Type','NEW_TI','FRID','Comments', 'User', 'flag']
+        sheetname='sheet1'
+        os.chdir(self.report_path)
+        sub_rep_path = '_'.join([self.week, self.slot, self.version])
+        try:
+            os.makedirs(sub_rep_path)
+        except:
+            pass
+        os.chdir(sub_rep_path)
+        logger.info('===> enter report path: %s' % os.getcwd())
+
+        old_cases = [case.to_list() for case in self.old_result]
+        old_data = pd.DataFrame(old_cases, columns=self.columns)
+
+        # update flag
+        pending = [case.SNo for case in self.pending]
+        old_data['flag'] = old_data['SNo'].where(old_data['SNo'].isin(pending), 0).where(~old_data['SNo'].isin(pending), 1)
+
+        writer = pd.ExcelWriter(self.result_file_old)
+        old_data.to_excel(writer,sheetname)
+        writer.save()
+        logger.info('===> save TI detailed result to %s' % self.result_file_old)
+        TI_report_detail_filename = "Week%s-Slot%s-GPON_SB_TI_Summary-%s_%s.xls" % (self.week, self.slot, self.version, self.domain)
+        #shutil.copy(self.result_file_old, TI_report_detail_filename)
+        set_excel_format(self.result_file_old, TI_report_detail_filename)
+        logger.info('===> copy report file to ' + TI_report_detail_filename)
 
 
     def save_compare_result(self):
-        self.columns = ['SNo','Stream','Build','Platform','ATC','Board','ONT','Failed_Steps','RESULT', 'TI_Type','NEW_TI','FRID','Comments', 'flag']
+        self.columns = ['SNo','Stream','Build','Platform','ATC','Board','ONT','Failed_Steps','RESULT', 'TI_Type','NEW_TI','FRID','Comments', 'User', 'flag']
         sheetname='sheet1'
         os.chdir(self.result_path)
         #old_data = pd.read_excel(self.result_file, sheetname=sheetname, converters={'SNo':str,'Failed_Steps':str, 'Build':str, 'flag':str})
@@ -146,6 +186,7 @@ class AutoTI(object):
         concat_data = pd.concat([old_data,new_data]).drop_duplicates('SNo').reset_index(drop=True)
         concat_data = concat_data[self.columns]
 
+        concat_data['SNo'] = concat_data['SNo'].astype('int')
         concat_data = concat_data.sort_values(["SNo"],ascending=False)
         #import pdb; pdb.set_trace()
         concat_data = self.map_result(concat_data)
@@ -190,9 +231,11 @@ class AutoTI(object):
         if not self.pending:
             logger.info('===> not found pending TI, abort update excel')
             return
-        self.columns = ['SNo','Stream','Build','Platform','ATC','Board','ONT','Failed_Steps','RESULT', 'TI_Type','NEW_TI','FRID','Comments', 'flag']
+        self.columns = ['SNo','Stream','Build','Platform','ATC','Board','ONT','Failed_Steps','RESULT', 'TI_Type','NEW_TI','FRID','Comments', 'User', 'flag']
         sheetname='sheet1'
         os.chdir(self.result_path)
+        if not os.path.exists(self.result_file):
+            os.system('cp template.xls %s' % self.result_file)
         old_data = pd.read_excel(self.result_file, sheetname=sheetname, converters={'SNo':str,'Failed_Steps':str, 'Build':str, 'flag':str})
 
         writer = pd.ExcelWriter(self.result_file_old)
@@ -242,7 +285,7 @@ class AutoTI(object):
         for case in ddata:
             if case['TI_Type']!='':
                 continue
-            if case['SNo'] not in pending:
+            if str(case['SNo']) not in pending:
                 continue
             for his_case in ddata:
                 if his_case['TI_Type']=='' or  int(case['SNo'])<int(his_case['SNo']) or his_case['TI_Type']=='NonReproducible':
@@ -262,7 +305,7 @@ class AutoTI(object):
                     case['flag'] = '2'
                     logger.info('-'*80)
                     logger.info('TI: %s  %s  %s maped success' % (case['Build'], case['ATC'], case['Platform']))
-                    logger.info('\t\t ' + case['SNo'] + ' <---> ' + his_case['SNo'])
+                    logger.info('\t\t ' + str(case['SNo']) + ' <---> ' + str(his_case['SNo']))
                     logger.info('\t\t ' + ' '.join([case['TI_Type'], case['NEW_TI'], case['FRID'], case['Comments']]))
                     break
 
@@ -295,7 +338,7 @@ class AutoTI(object):
         self.ddata = self.result_data.set_index('SNo').to_dict('index')
 
 
-    def fill_TI_result(self):
+    def fill_TI_result(self, username='', password=''):
         self.get_TI_database()
         TI_Type_valid = ['ENV', 'SW', 'ATC', 'SW-ONT', 'NonReproducible', 'Inconsistent']
         #import pdb; pdb.set_trace()
@@ -310,8 +353,9 @@ class AutoTI(object):
                  + '  ' + self.TI_filled[case]['Platform'])
 
         logger.info('\n\n' + '#'*80)
-        username = input('===> please input your username:')
-        password = getpass.getpass('===> password:')
+        if not username:
+            username = input('===> please input your username:')
+            password = getpass.getpass('===> password:')
         #username, password = 'svc_hetran', 'asb#2345'
         #username, password = args.username, args.password
         with webtia_session(username, password) as fs:

@@ -57,9 +57,9 @@ auth = HTTPBasicAuth(username, password)
 # ResolvedOn is date
 
 
-filter_resolved = '''SubmitterId in (%s) and State eq Resolved and Type eq FR''' % user_list
-filter_query = '''SubmitterId in (%s) and State eq Query and Type eq FR''' % user_list
-filter_duplicate = '''SubmitterId in (%s) and State eq Duplicate and DuplicateVerified eq N''' % user_list
+filter_resolved = '''SubmitterId in (%s) and State eq Resolved and Type eq FR and SubmittedOn gt \'2017-01-01\'''' % user_list
+filter_query = '''SubmitterId in (%s) and State eq Query and Type eq FR and SubmittedOn gt \'2017-01-01\'''' % user_list
+filter_duplicate = '''SubmitterId in (%s) and State eq Duplicate and DuplicateVerified eq N and SubmittedOn gt \'2017-01-01\'''' % user_list
 
 
 payload = {

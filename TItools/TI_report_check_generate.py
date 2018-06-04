@@ -8,16 +8,17 @@ import argparse
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-d', '--domain', dest='product', required=True, choices=['FTTU', 'PORTPROT'])
+parser.add_argument('-d', '--domain', dest='product', required=True, choices=['FTTU', 'PORTPROT', 'P2P'])
 parser.add_argument('-v', '--version', required=True)
 parser.add_argument('-w', '--week', default='')
 parser.add_argument('-s', '--slot', default='')
 args = parser.parse_args()
 product, version, week, slot = args.product, args.version, args.week, args.slot
 
-from settings import slot_map
-week, slot = slot_map[args.version]
-print(product, version, week, slot)
+
+if week == '' or slot == '':
+  from settings import slot_map
+  week, slot = slot_map[args.version]
 
 if week == '' or slot == '':
   print('invalid week or slot')
@@ -26,6 +27,7 @@ if int(slot)%2==0 and product=='PORTPROT':
   print('PORTPROT not run on slot 2 or slot 4')
   exit()
 
+print(product, version, week, slot)
 
 def check_pending_cases(version):
   url = 'http://135.249.31.114/cgi-bin/test/ti_info.cgi?sRelease=&sBuild=%s&sPlatform=&sAtc=&sBoard=&sTiType=&sPt=%s'
@@ -54,6 +56,9 @@ def check_pending_cases(version):
         #  continue
         if case_info[9] == 'NOT_RUN':
           print( 'abort NOT_RUN ' + '\t\t'.join(case_info[3:6]))
+          continue
+        if case_info[9] == 'RERUN':
+          print( 'abort RERUN ' + '\t\t'.join(case_info[3:6]))
           continue
         print('\t\t'.join(case_info[3:6]))
         pending.append("%s____%s" % (case_info[3],case_info[4]))
@@ -113,7 +118,7 @@ def get_TI_report(ver_list):
 
 local_log_path = 'D:\\TI_logs\\' if os.name=='nt' else '/home/atxuser/TI_logs'
 local_rep_path = 'D:\\TI_reports\\' if os.name=='nt' else '/home/atxuser/TI_reports'
-network_path = "\\135.251.206.152\pt\Automation\TI_report"
+network_path = r"\\135.251.206.152\pt\Automation\TI_report"
 
 try:
   os.makedirs(local_log_path)

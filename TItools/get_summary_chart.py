@@ -12,6 +12,12 @@ dcap["phantomjs.page.settings.userAgent"] = (
 
 
 def get_webpage_screenshot(filename, url):
+
+    if os.path.exists(filename+ '_chart' +'.png'):
+        os.remove(filename+ '_chart' +'.png')
+    if os.path.exists(filename+ '_SWFR' +'.png'):
+        os.remove(filename+ '_SWFR' +'.png')
+
     driver = webdriver.PhantomJS(desired_capabilities=dcap)
     driver.set_window_size(2000, 4000)
     driver.maximize_window()

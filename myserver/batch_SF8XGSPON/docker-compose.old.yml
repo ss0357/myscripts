@@ -1,0 +1,38 @@
+version: '3'
+
+services:
+  SF8_XGS_PCTA:
+    image: lsspcta
+    hostname: SF8_XGS_PCTA_DOCKER
+    #environment:
+    ports:
+      - "1022:22"
+      - "5911:5901"
+    volumes:
+      - /home/atxuser:/home/atxuser
+      - /repo:/repo
+      - ./run.sh:/tmp/run.sh
+    restart: always
+    networks:
+      - default
+      - macvlan_eth1
+      - macvlan_eth2
+    command: /tmp/run.sh
+
+
+
+networks:
+  macvlan_eth2:
+    driver: macvlan
+    driver_opts:
+        parent: eth2
+    ipam:
+        config:
+            - subnet: 20.20.0.0/16
+  macvlan_eth1:
+    driver: macvlan
+    driver_opts:
+        parent: eth1
+    ipam:
+        config:
+            - subnet: 192.168.1.0/24

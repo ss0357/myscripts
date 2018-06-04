@@ -9,12 +9,13 @@ import argparse
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-d', '--domain', dest='product', required=True, choices=['FTTU', 'PORTPROT'])
+parser.add_argument('-d', '--domain', dest='product', required=True, choices=['FTTU', 'PORTPROT', 'P2P'])
 parser.add_argument('-v', '--version', required=True)
 parser.add_argument('-w', '--week', default='')
 parser.add_argument('-s', '--slot', default='')
 parser.add_argument('-u', '--username', default='')
 parser.add_argument('-p', '--password', default='')
+parser.add_argument('-c', '--coverage', default='Weekly')
 args = parser.parse_args()
 
 if args.week=='' or args.slot=='':
@@ -38,20 +39,22 @@ today = time.strftime('%Y/%m/%d',time.localtime(time.time()))
 
 
 def get_batch_owner(batch):
-    if  'EQMT' in batch or 'L3FWD' in batch:
+    if  'EQMT' in batch:
         return 'Li Songsong'
     elif 'QOS' in batch:
         return 'Wang Liyun'
+    elif 'L3FWD' in batch:
+        return 'Wu Liulan'
     elif 'MCAST' in batch or 'SETUP' in batch:
         return 'Yang Hong G'
-    elif 'TRANSPORT' in batch or 'SUBMGMT' in batch:
-        return 'Ma Hui C'
+    elif 'SUBMGMT' in batch:
+        return 'Fang Ling'
     elif 'TRANSPORT' in batch:
         return 'Zhang Xiaohang'
     elif 'MGMT' in batch and 'SUBMGMT' not in batch:
         return 'Zhang Jieming'
     elif 'L2FWD' in batch:
-        return 'Lu Yuqin'
+        return 'He Qun'
     elif 'NFXSD_FANTF_REDUN' in batch:
         return 'Wu Liulan'
     elif 'PORTPROT' in batch:
@@ -60,7 +63,7 @@ def get_batch_owner(batch):
         elif slot == '3':
             return 'Zhou Yun C'
         elif slot == '5':
-            return 'Yao Qingfen'
+            return 'Zhang Xiaohang'
     elif 'VOIP' in batch:
         return 'Zhou Qian'
     else:
@@ -73,10 +76,18 @@ def batch_belong_product(batch):
     if product == 'FTTU':
         if 'FTTU' in batch and 'LP' not in batch:
             return True
+        if batch in ['NFXSB_NANTE_REDUND_daily', 'NFXSD_FANTF_REDUND_daily']:
+            return True
     if product == 'PORTPROT':
         batch_list = ['NFXSB_NANTE_REDUND_PORTPROT_weekly', 'NFXSD_FANTF_REDUND_weekly', 'NFXSE_FANTF_REDUND_PORTPROT_weekly']
         if batch in batch_list:
             return True
+    if product == 'P2P':
+        batch_list = ['SHA_NFXSE_FANTG_P2P_A2A_weekly',
+                      'NFXSE_FANTF_PT_BATCH6_weekly',
+                      'SHA_NFXSE_FANTF_P2P_COMM_weekly',
+                      'SHA_NFXSE_FANTF_P2P_weekly']
+        return batch in batch_list
     return False
 
 
@@ -141,10 +152,10 @@ else:
     print('===> login failed with %s %s' % (username, '*********'))
     exit()
 
-webtia_url = 'http://135.249.31.173/webtia/Presentation.php?strm=%s&bld=%s&tstype=Weekly'
+webtia_url = 'http://135.249.31.173/webtia/Presentation.php?strm=%s&bld=%s&tstype=%s'
 strm = 'ISR' + version.split('.')[0]
-print(webtia_url % (strm, version))
-r = s.get(webtia_url % (strm, version))
+print(webtia_url % (strm, version, args.coverage))
+r = s.get(webtia_url % (strm, version, args.coverage))
 
 if r.status_code== 200:
     print('===> get batch list info successful')
@@ -156,8 +167,14 @@ soup = BeautifulSoup(r.content)
 a_list = soup.find_all('a')[3:]
 batch_list = []
 
+if args.coverage == 'Daily':
+    a_list = a_list[1:]
+
 for i in range(0, len(a_list), 2):
     td1, td2 = a_list[i], a_list[i+1]
+    print('@@@@@@@@ td1: %s' % td1)
+    #import pdb
+    #pdb.set_trace()
     batch = td1.button.contents[0].strip()
 
     if batch_belong_product(batch):
@@ -188,6 +205,8 @@ except:
 os.chdir(sub_rep_path)
 print('===> enter report path: %s' % os.getcwd())
 
+if args.coverage == 'Daily':
+    product += '_Daily'
 filename = 'Week%s-Slot%s-GPON_SB_TI_Summary-%s_%s.csv' % (week,slot,version,product)
 with open(filename, 'w') as ff:
     for x in batch_list:

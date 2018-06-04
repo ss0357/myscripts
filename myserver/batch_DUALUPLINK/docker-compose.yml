@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  DUALUPLINK:
+    image: lsspcta
+    hostname: CFXRA_CFNTB_DUALUPLINK
+    environment:
+      - DOCKERID:DUALUPLINK
+    #ports:
+    volumes:
+      - /home/atxuser/DUALUPLINK:/home/atxuser
+      - /repo:/repo
+      - /tftpboot:/tftpboot
+      - ./vncserver:/usr/bin/vncserver
+      - ./run.sh:/tmp/run.sh
+    restart: always
+    network_mode: host
+    privileged: true
+    command: /tmp/run.sh

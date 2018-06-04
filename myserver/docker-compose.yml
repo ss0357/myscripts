@@ -1,0 +1,35 @@
+version: '3'
+
+services:
+  http:
+    image: nginx:1.13.10-alpine
+    hostname: http
+    #environment:
+    ports:
+      - "8080:8080"
+    volumes:
+      - /home/atxuser:/home/atxuser
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    restart: always
+
+  tftp:
+    build: tftp/
+    hostname: tftp
+    #environment:
+    ports:
+      - "69:69/udp"
+    volumes:
+      - /tftpboot:/tftpboot
+    restart: always
+
+  portserver1:
+    build: ser2net/
+    hostname: portserver
+    #environment:
+    devices:
+      - "/dev/ttyUSB2:dev/ttyUSB1"
+    ports:
+      - "4001:2001"
+    volumes:
+      - ./ser2net/ser2net.conf:/etc/ser2net.conf
+    restart: always

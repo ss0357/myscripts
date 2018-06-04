@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  SF8XGSPON:
+    image: lsspcta
+    hostname: CFXSC_CFNTC_SF8_XGSPON_STAND
+    environment:
+      - BATCHNAME:CFXSC_CFNTC_SF8_XGSPON_STAND
+    #ports:
+    volumes:
+      - /home/atxuser/SF8XGSPON:/home/atxuser
+      - /repo:/repo
+      - /tftpboot:/tftpboot
+      - ./vncserver:/usr/bin/vncserver
+      - ./clients.conf:/etc/raddb/clients.conf
+      - ./run.sh:/tmp/run.sh
+    restart: always
+    network_mode: host
+    privileged: true
+    command: /tmp/run.sh
+
